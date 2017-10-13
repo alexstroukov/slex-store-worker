@@ -1,0 +1,1 @@
+import './slexStoreWorker.test'

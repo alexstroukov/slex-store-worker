@@ -1,0 +1,61 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"request": "launch",
+			"name": "Test",
+			"type": "node",
+			// Notice, we bypass the launcher and start the test runner directly
+			"program": "${workspaceRoot}/node_modules/mocha/bin/_mocha",
+			// run the tests in the test folder
+			"args": ["${workspaceRoot}/compiled/test"],
+			"cwd": "${workspaceRoot}",
+			"runtimeExecutable": null,
+			"console": "externalTerminal",
+			"preLaunchTask": null,
+			"env": {
+				"NODE_ENV": "development"
+			},
+			"sourceMaps": true,
+			"outFiles": [
+				"${workspaceRoot}/compiled"
+			]
+		}
+		// {
+		// 	"request": "launch",
+		// 	"name": "Test Server",
+		// 	"type": "node",
+		// 	// Notice, we bypass the launcher and start the test runner directly
+		// 	"program": "${workspaceRoot}/node_modules/mocha/bin/_mocha",
+		// 	// run the tests in the test folder
+		// 	"args": ["${workspaceRoot}/compiled/server-test"],
+		// 	"cwd": "${workspaceRoot}",
+		// 	"runtimeExecutable": null,
+		// 	"console": "internalConsole",
+		// 	"preLaunchTask": null,
+		// 	"env": {
+		// 		"NODE_ENV": "development"
+		// 	},
+		// 	"sourceMaps": true,
+		// 	"outDir": "${workspaceRoot}/compiled"
+		// },
+		// {
+		// 	"request": "launch",
+		// 	"name": "Test Client",
+		// 	"type": "node",
+		// 	// Notice, we bypass the launcher and start the test runner directly
+		// 	"program": "${workspaceRoot}/node_modules/mocha/bin/_mocha",
+		// 	// run the tests in the test folder
+		// 	"args": ["${workspaceRoot}/compiled/client-test"],
+		// 	"cwd": "${workspaceRoot}",
+		// 	"runtimeExecutable": null,
+		// 	"console": "externalTerminal",
+		// 	"preLaunchTask": null,
+		// 	"env": {
+		// 		"NODE_ENV": "development"
+		// 	},
+		// 	"sourceMaps": true,
+		// 	"outDir": "${workspaceRoot}/compiled"
+		// }
+	]
+}
