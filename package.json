@@ -1,9 +1,9 @@
 {
-  "name": "slex-store",
-  "version": "0.0.7",
-  "repository": "https://github.com/alexstroukov/slex-store",
+  "name": "slex-store-worker",
+  "version": "0.0.10",
+  "repository": "https://github.com/alexstroukov/slex-store-worker",
   "license": "MIT",
-  "main": "compiled/slexStore.js",
+  "main": "compiled/slexStoreWorker.js",
   "standard": {
     "parser": "babel-eslint",
     "plugins": [
@@ -36,8 +36,7 @@
     "prepublishOnly": "rm -rf compiled && webpack --config webpack/src.webpack.config.js"
   },
   "dependencies": {
-    "lodash": "4.17.2",
-    "slex-store": "0.0.9"
+    "slex-store": "0.0.10"
   },
   "devDependencies": {
     "babel": "6.23.0",

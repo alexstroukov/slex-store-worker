@@ -1,3 +1,2 @@
-import createStore, { createReducer, createDispatch, createGetState, arrayActionsMiddleware, functionActionsMiddleware } from './slexStore'
-export { createStore, createReducer, createDispatch, createGetState, arrayActionsMiddleware, functionActionsMiddleware }
-export default createStore
+import { createSyncAction, createClientReducer, createClientDispatch, createWorkerDispatch } from './slexStoreWorker'
+export { createSyncAction, createClientReducer, createClientDispatch, createWorkerDispatch }

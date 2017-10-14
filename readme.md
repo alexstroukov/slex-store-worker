@@ -12,10 +12,19 @@ $ npm install slex-store-worker
 Client
 
 ```javascript
-import { createClientStore } from 'slex-store-worker'
+import { createClientReducer, createClientDispatch } from 'slex-store-worker'
+import createSlexStore from 'slex-store'
 
 const worker = new Worker('/server/path.js')
-const store = createClientStore({ worker })
+
+const store =
+  createSlexStore(
+      createClientDispatch({
+        worker,
+        reducer: createClientReducer()
+      })
+    )
+  )
 
 store.subscribe((state) => {
   // rerender your app e.g. ReactDOM.render()
@@ -26,12 +35,12 @@ store.subscribe((state) => {
 Worker
 
 ```javascript
-import { createSyncedDispatch } from 'slex-store-worker'
+import { createWorkerDispatch } from 'slex-store-worker'
 import createSlexStore, { createReducer } from 'slex-store'
 
 const store =
   createSlexStore(
-      createSyncedDispatch({
+      createWorkerDispatch({
         workerGlobalContext: self,
         reducer: createReducer({
           ...
@@ -41,9 +50,5 @@ const store =
       })
     )
   )
-
-store.subscribe((state) => {
-  // rerender your app e.g. ReactDOM.render()
-})
 
 ```
