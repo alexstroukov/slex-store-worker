@@ -40,7 +40,6 @@ class SlexWorkerStoreModule {
   }
   
   createClientDispatch = ({ worker, reducer, middleware = [], sideEffects = [] }) => {
-    debugger
     const createdDispatch = slexStore.createDispatch({
       reducer,
       middleware: [this.createForwardActionToWorkerStoreMiddleware({ worker }), ...middleware],
