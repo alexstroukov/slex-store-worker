@@ -20,16 +20,6 @@ class SlexWorkerStoreModule {
     }
   }
   
-  createClientWorker = ({ url }) => {
-    const worker = new Worker(url)
-    // dispatch action to replace store with one received from worker
-    worker.onmessage = function workerStoreReceived (event) {
-      const nextState = event.data
-      createdDispatch.dispatch(this.createSyncAction({ nextState }))
-    }
-    return worker
-  }
-  
   createForwardActionToWorkerStoreMiddleware = ({ worker }) => {
     // forward action to worker
     return function forwardActionToWorkerStoreMiddleware (dispatch, getState, action) {
@@ -45,6 +35,22 @@ class SlexWorkerStoreModule {
       middleware: [this.createForwardActionToWorkerStoreMiddleware({ worker }), ...middleware],
       sideEffects
     })
+
+    const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
+      const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
+      // dispatch sync action to replace store with one received from worker
+      worker.onmessage = event => {
+        const nextState = event.data
+        dispatch(this.createSyncAction({ nextState }))
+      }
+      return appliedDispatch
+    }
+    return {
+      applyDispatch: wrappedApplyDispatch,
+      reducer: createdDispatch.reducer
+    }
+
+
     return createdDispatch
   }
   

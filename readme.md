@@ -16,11 +16,10 @@ import slexStoreWorker from 'slex-store-worker'
 import slexStore from 'slex-store'
 const store =
   slexStore.createStore(
-      slexStoreWorker.createClientDispatch({
-        worker: slexStore.createClientWorker({ url: '/server/path.js' }),
-        reducer: slexStoreWorker.createClientReducer()
-      })
-    )
+    slexStoreWorker.createClientDispatch({
+      worker: new Worker('./server/worker.js'),
+      reducer: slexStoreWorker.createClientReducer()
+    })
   )
 
 store.subscribe((state) => {

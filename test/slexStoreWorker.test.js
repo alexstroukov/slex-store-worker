@@ -63,31 +63,33 @@ describe('slexStoreWorker', function () {
     })
   })
 
-  describe('createClientWorker', function () {
-    const url = 'testUrl'
-    const reducer = sandbox.spy()
-    it('should return a worker', function () {
-      const worker = slexStoreWorker.createClientWorker({ url })
-      expect(worker).to.exist
-      expect(worker instanceof global.Worker).to.equal(true)
-    })
-  })
-
   describe('createClientDispatch', function () {
     const middleware = [{}]
     const sideEffects = []
+    const nextState = {}
     let reducer
     let worker
     let createDispatchStub
-    let createDispatchStubResult = {}
+    let applyDispatchStub
+    let createDispatchStubResult
+    let appliedDispatchStubResult = {
+      stateChanged: true,
+      nextState
+    }
     let createForwardActionToWorkerStoreMiddlewareStub
     let createForwardActionToWorkerStoreMiddlewareStubResult = {}
     beforeEach(function () {
       createForwardActionToWorkerStoreMiddlewareStub = sandbox.stub(slexStoreWorker, 'createForwardActionToWorkerStoreMiddleware').returns(createForwardActionToWorkerStoreMiddlewareStubResult)
+      applyDispatchStub = sandbox.stub().returns(appliedDispatchStubResult)
+      createDispatchStubResult = {
+        reducer: sandbox.spy(),
+        applyDispatch: sandbox.stub().returns(applyDispatchStub)
+      }
       createDispatchStub = sandbox.stub(slexStore, 'createDispatch').returns(createDispatchStubResult)
       reducer = sandbox.spy()
-      worker = slexStoreWorker.createClientWorker({ url: 'testUrl' })
+      worker = new Worker('testUrl')
     })
+
     it('should createDispatch with slex-store', function () {
       const result = slexStoreWorker.createClientDispatch({
         worker,
@@ -96,7 +98,6 @@ describe('slexStoreWorker', function () {
         sideEffects
       })
       expect(createDispatchStub.calledOnce).to.be.true
-      expect(createDispatchStubResult).to.equal(createDispatchStubResult)
     })
     it('should createDispatch with given reducer', function () {
       const result = slexStoreWorker.createClientDispatch({
@@ -126,6 +127,59 @@ describe('slexStoreWorker', function () {
       expect(createForwardActionToWorkerStoreMiddlewareStub.calledOnce).to.be.true
       expect(createDispatchStub.firstCall.args[0].middleware[0]).to.equal(createForwardActionToWorkerStoreMiddlewareStubResult)
       expect(createDispatchStub.firstCall.args[0].middleware[1]).to.equal(middleware[0])
+    })
+    it('should return an object with applyDispatch which wraps the slex store applyDispatch', function () {
+      const result = slexStoreWorker.createClientDispatch({
+        worker,
+        reducer,
+        middleware,
+        sideEffects
+      })
+      const dispatch = sandbox.spy()
+      const getState = sandbox.spy()
+      const setState = sandbox.spy()
+      const notifyListeners = sandbox.spy()
+      const appliedDispatch = result.applyDispatch({ dispatch, getState, setState, notifyListeners })
+      expect(appliedDispatch).to.equal(applyDispatchStub)
+      expect(result.reducer).to.equal(createDispatchStubResult.reducer)
+    })
+    it('should set worker onmessage callback', function () {
+      const result = slexStoreWorker.createClientDispatch({
+        worker,
+        reducer,
+        middleware,
+        sideEffects
+      })
+      const event = {
+        data: nextState
+      }
+      const dispatch = sandbox.spy()
+      const getState = sandbox.spy()
+      const setState = sandbox.spy()
+      const notifyListeners = sandbox.spy()
+      const appliedDispatch = result.applyDispatch({ dispatch, getState, setState, notifyListeners })
+      expect(worker.onmessage).to.exist
+    })
+    it('should dispatch sync action onmessage', function () {
+      const result = slexStoreWorker.createClientDispatch({
+        worker,
+        reducer,
+        middleware,
+        sideEffects
+      })
+      const event = {
+        data: nextState
+      }
+      const dispatch = sandbox.spy()
+      const getState = sandbox.spy()
+      const setState = sandbox.spy()
+      const notifyListeners = sandbox.spy()
+      const appliedDispatch = result.applyDispatch({ dispatch, getState, setState, notifyListeners })
+      expect(worker.onmessage).to.exist
+      worker.onmessage(event)
+      expect(dispatch.calledOnce).to.be.true
+      expect(dispatch.firstCall.args[0].type).to.equal('SYNC_WITH_WORKER_STORE')
+      expect(dispatch.firstCall.args[0].nextState).to.equal(nextState)
     })
   })
 
@@ -163,7 +217,6 @@ describe('slexStoreWorker', function () {
         sideEffects
       })
       expect(createDispatchStub.calledOnce).to.be.true
-      expect(createDispatchStubResult).to.equal(createDispatchStubResult)
     })
     it('should createDispatch with given reducer', function () {
       const result = slexStoreWorker.createWorkerDispatch({
