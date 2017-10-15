@@ -1,6 +1,6 @@
 {
   "name": "slex-store-worker",
-  "version": "0.0.10",
+  "version": "0.0.12",
   "repository": "https://github.com/alexstroukov/slex-store-worker",
   "license": "MIT",
   "main": "compiled/slexStoreWorker.js",
@@ -36,7 +36,7 @@
     "prepublishOnly": "rm -rf compiled && webpack --config webpack/src.webpack.config.js"
   },
   "dependencies": {
-    "slex-store": "0.0.10"
+    "slex-store": "0.0.12"
   },
   "devDependencies": {
     "babel": "6.23.0",

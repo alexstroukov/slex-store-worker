@@ -12,16 +12,13 @@ $ npm install slex-store-worker
 Client
 
 ```javascript
-import { createClientReducer, createClientDispatch } from 'slex-store-worker'
-import createSlexStore from 'slex-store'
-
-const worker = new Worker('/server/path.js')
-
+import slexStoreWorker from 'slex-store-worker'
+import slexStore from 'slex-store'
 const store =
-  createSlexStore(
-      createClientDispatch({
-        worker,
-        reducer: createClientReducer()
+  slexStore.createStore(
+      slexStoreWorker.createClientDispatch({
+        worker: createClientWorker({ url: '/server/path.js' }),
+        reducer: slexStoreWorker.createClientReducer()
       })
     )
   )
@@ -35,14 +32,14 @@ store.subscribe((state) => {
 Worker
 
 ```javascript
-import { createWorkerDispatch } from 'slex-store-worker'
-import createSlexStore, { createReducer } from 'slex-store'
+import slexStoreWorker from 'slex-store-worker'
+import slexStore from 'slex-store'
 
 const store =
-  createSlexStore(
-      createWorkerDispatch({
+  slexStore.createStore(
+      slexStoreWorker.createWorkerDispatch({
         workerGlobalContext: self,
-        reducer: createReducer({
+        reducer: slexStore.createReducer({
           ...
         }),
         middleware: [...],
