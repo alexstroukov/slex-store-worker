@@ -17,7 +17,7 @@ import slexStore from 'slex-store'
 const store =
   slexStore.createStore(
       slexStoreWorker.createClientDispatch({
-        worker: createClientWorker({ url: '/server/path.js' }),
+        worker: slexStore.createClientWorker({ url: '/server/path.js' }),
         reducer: slexStoreWorker.createClientReducer()
       })
     )
