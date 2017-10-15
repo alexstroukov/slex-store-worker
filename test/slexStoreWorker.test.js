@@ -23,18 +23,17 @@ describe('slexStoreWorker', function () {
 
   describe('createSyncAction', function () {
     const nextState = {}
+    const action = slexStoreWorker.createSyncAction({ nextState })
     it('should return an object', function () {
-      const action = slexStoreWorker.createSyncAction({ nextState })
       expect(action).to.exist
       expect(typeof action === 'object').to.equal(true)
     })
     it('should have type SYNC_WITH_WORKER_STORE', function () {
-      const action = slexStoreWorker.createSyncAction({ nextState })
+
       expect(action.type).to.exist
       expect(action.type).to.equal('SYNC_WITH_WORKER_STORE')
     })
     it('should have nextState', function () {
-      const action = slexStoreWorker.createSyncAction({ nextState })
       expect(action.nextState).to.exist
       expect(action.nextState).to.equal(nextState)
     })
@@ -281,6 +280,33 @@ describe('slexStoreWorker', function () {
   })
   
   describe('createForwardActionToWorkerStoreMiddleware', function () {
-    
+    let worker
+    let dispatchStub
+    let getStateStub
+    const action = { type: 'createForwardActionToWorkerStoreMiddlewareTest' }
+    const syncAction = slexStoreWorker.createSyncAction({})
+    beforeEach(function () {
+      dispatchStub = sandbox.stub()
+      getStateStub = sandbox.stub()
+      worker = {
+        postMessage: sandbox.spy()
+      }
+    })
+    it('should return a function', function () {
+      const middleware = slexStoreWorker.createForwardActionToWorkerStoreMiddleware({ worker })
+      expect(middleware).to.exist
+      expect(typeof middleware === 'function').to.equal(true)
+    })
+    it('should return a middleware which forwards actions to worker', function () {
+      const middleware = slexStoreWorker.createForwardActionToWorkerStoreMiddleware({ worker })
+      middleware(dispatchStub, getStateStub, action)
+      expect(worker.postMessage.calledOnce).to.be.true
+      expect(worker.postMessage.firstCall.args[0]).to.equal(action)
+    })
+    it('should return a middleware which ignores sync actions', function () {
+      const middleware = slexStoreWorker.createForwardActionToWorkerStoreMiddleware({ worker })
+      middleware(dispatchStub, getStateStub, syncAction)
+      expect(worker.postMessage.called).to.be.false
+    })
   })
 })
