@@ -36,7 +36,7 @@
     "prepublishOnly": "rm -rf compiled && webpack --config webpack/src.webpack.config.js"
   },
   "dependencies": {
-    "slex-store": "0.0.12"
+    "slex-store": "0.0.13"
   },
   "devDependencies": {
     "babel": "6.23.0",
