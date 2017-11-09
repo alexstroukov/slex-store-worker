@@ -1,6 +1,6 @@
 {
   "name": "slex-store-worker",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "repository": "https://github.com/alexstroukov/slex-store-worker",
   "license": "MIT",
   "main": "compiled/slexStoreWorker.js",
