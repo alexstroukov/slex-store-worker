@@ -1,4 +1,5 @@
 import slexStore from 'slex-store'
+import _ from 'lodash'
 
 class SlexWorkerStoreModule {
 
@@ -53,20 +54,29 @@ class SlexWorkerStoreModule {
 
     return createdDispatch
   }
+
+  _getPostMessage = ({ workerGlobalContext, debounce }) => {
+    if (_.isNumber(debounce)) {
+      return _.debounce(workerGlobalContext.postMessage, debounce)
+    } else {
+      return workerGlobalContext.postMessage
+    }
+  }
   
-  createWorkerDispatch = ({ workerGlobalContext, reducer, middleware = [], sideEffects = [] }) => {
+  createWorkerDispatch = ({ workerGlobalContext, reducer, middleware = [], sideEffects = [], debounce }) => {
     const createdDispatch = slexStore.createDispatch({
       reducer,
       middleware,
       sideEffects
     })
+    const postMessage = this._getPostMessage({ workerGlobalContext, debounce })
     const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
       const wrappedAppliedDispatch = action => {
         const appliedResult = appliedDispatch(action)
         if (appliedResult.stateChanged) {
           // notify client of new state
-          workerGlobalContext.postMessage(appliedResult.nextState)
+          postMessage(appliedResult.nextState)
         }
         return appliedResult
       }
