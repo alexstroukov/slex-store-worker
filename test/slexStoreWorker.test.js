@@ -151,7 +151,7 @@ describe('slexStoreWorker', function () {
         sideEffects
       })
       const event = {
-        data: nextState
+        data: slexStoreWorker.createSyncAction({ nextState })
       }
       const dispatch = sandbox.spy()
       const getState = sandbox.spy()
@@ -168,7 +168,7 @@ describe('slexStoreWorker', function () {
         sideEffects
       })
       const event = {
-        data: nextState
+        data: slexStoreWorker.createSyncAction({ nextState })
       }
       const dispatch = sandbox.spy()
       const getState = sandbox.spy()
@@ -180,6 +180,25 @@ describe('slexStoreWorker', function () {
       expect(dispatch.calledOnce).to.be.true
       expect(dispatch.firstCall.args[0].type).to.equal('SYNC_WITH_WORKER_STORE')
       expect(dispatch.firstCall.args[0].nextState).to.equal(nextState)
+    })
+    it('should not dispatch anything onmessage when data is not sync action', function () {
+      const result = slexStoreWorker.createClientDispatch({
+        worker,
+        reducer,
+        middleware,
+        sideEffects
+      })
+      const event = {
+        data: {}
+      }
+      const dispatch = sandbox.spy()
+      const getState = sandbox.spy()
+      const setState = sandbox.spy()
+      const notifyListeners = sandbox.spy()
+      const appliedDispatch = result.applyDispatch({ dispatch, getState, setState, notifyListeners })
+      expect(worker.onmessage).to.exist
+      worker.onmessage(event)
+      expect(dispatch.notCalled).to.be.true
     })
   })
 
@@ -328,7 +347,8 @@ describe('slexStoreWorker', function () {
       const appliedDispatch = result.applyDispatch({ dispatch, getState, setState, notifyListeners })
       appliedDispatch(action)
       expect(workerGlobalContext.postMessage.calledOnce).to.be.true
-      expect(workerGlobalContext.postMessage.firstCall.args[0]).to.equal(nextState)
+      expect(workerGlobalContext.postMessage.firstCall.args[0].type).to.equal('SYNC_WITH_WORKER_STORE')
+      expect(workerGlobalContext.postMessage.firstCall.args[0].nextState).to.equal(nextState)
     })
   })
   

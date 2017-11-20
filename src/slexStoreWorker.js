@@ -41,8 +41,9 @@ class SlexWorkerStoreModule {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
       // dispatch sync action to replace store with one received from worker
       worker.onmessage = event => {
-        const nextState = event.data
-        dispatch(this.createSyncAction({ nextState }))
+        if (event.data.type === 'SYNC_WITH_WORKER_STORE') {
+          dispatch(event.data)
+        }
       }
       return appliedDispatch
     }
@@ -76,7 +77,7 @@ class SlexWorkerStoreModule {
         const appliedResult = appliedDispatch(action)
         if (appliedResult.stateChanged) {
           // notify client of new state
-          postMessage(appliedResult.nextState)
+          postMessage(this.createSyncAction({ nextState: appliedResult.nextState }))
         }
         return appliedResult
       }
