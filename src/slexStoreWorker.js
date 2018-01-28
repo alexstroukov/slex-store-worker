@@ -2,14 +2,12 @@ import slexStore from 'slex-store'
 import _ from 'lodash'
 
 class SlexWorkerStoreModule {
-
   createSyncAction = ({ nextState }) => {
     return {
       type: 'SYNC_WITH_WORKER_STORE',
       nextState
     }
   }
-  
   createClientReducer = () => {
     return (state, action) => {
       switch (action.type) {
@@ -20,7 +18,6 @@ class SlexWorkerStoreModule {
       }
     }
   }
-  
   createForwardActionToWorkerStoreMiddleware = ({ worker }) => {
     // forward action to worker
     return function forwardActionToWorkerStoreMiddleware (dispatch, getState, action) {
@@ -29,14 +26,12 @@ class SlexWorkerStoreModule {
       }
     }
   }
-  
   createClientDispatch = ({ worker, reducer, middleware = [], sideEffects = [] }) => {
     const createdDispatch = slexStore.createDispatch({
       reducer,
       middleware: [this.createForwardActionToWorkerStoreMiddleware({ worker }), ...middleware],
       sideEffects
     })
-
     const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
       // dispatch sync action to replace store with one received from worker
@@ -51,11 +46,8 @@ class SlexWorkerStoreModule {
       applyDispatch: wrappedApplyDispatch,
       reducer: createdDispatch.reducer
     }
-
-
     return createdDispatch
   }
-
   _getPostMessage = ({ workerGlobalContext, debounce }) => {
     if (_.isNumber(debounce)) {
       return _.debounce(workerGlobalContext.postMessage, debounce)
@@ -63,7 +55,6 @@ class SlexWorkerStoreModule {
       return workerGlobalContext.postMessage
     }
   }
-  
   createWorkerDispatch = ({ workerGlobalContext, reducer, middleware = [], sideEffects = [], debounce }) => {
     const createdDispatch = slexStore.createDispatch({
       reducer,

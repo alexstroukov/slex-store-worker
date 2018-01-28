@@ -36,6 +36,7 @@
     "prepublishOnly": "rm -rf compiled && webpack --config webpack/src.webpack.config.js"
   },
   "dependencies": {
+    "lodash": "4.17.2",
     "slex-store": "0.0.13"
   },
   "devDependencies": {

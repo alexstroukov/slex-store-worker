@@ -9,7 +9,6 @@ const config = {
   devServer: {},
   plugins: [],
   profile: true,
-
   output: {
     path: path.resolve(__dirname, '../compiled'),
     filename: 'slexStoreWorker.js',
@@ -20,9 +19,6 @@ const config = {
     devtoolFallbackModuleFilenameTemplate: 'webpack:///[resource-path]?[hash]',
     umdNamedDefine: true,
     sourcePrefix: '\t'
-  },
-  externals: {
-    'lodash': 'lodash'
   },
   module: {
     rules: [
