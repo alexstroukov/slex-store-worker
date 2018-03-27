@@ -47,11 +47,12 @@ class SlexWorkerStoreModule {
       }
     }
   }
-  createClientDispatch = ({ worker, reducer, middleware = [], sideEffects = [] }) => {
+  createClientDispatch = ({ worker, reducer, middleware = [], sideEffects = [], blacklist = [] }) => {
     const createdDispatch = slexStore.createDispatch({
       reducer,
       middleware: [this.createForwardActionToWorkerStoreMiddleware({ worker }), ...middleware],
-      sideEffects
+      sideEffects,
+      blacklist
     })
     const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
@@ -67,7 +68,8 @@ class SlexWorkerStoreModule {
     }
     return {
       applyDispatch: wrappedApplyDispatch,
-      reducer: createdDispatch.reducer
+      reducer: createdDispatch.reducer,
+      blacklist: createdDispatch.blacklist
     }
     return createdDispatch
   }
