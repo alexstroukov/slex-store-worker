@@ -1,4 +1,6 @@
 import slexStore from 'slex-store'
+import deepDiff from 'deep-diff'
+import applyDifferences from './applyDifferences'
 import _ from 'lodash'
 
 class SlexWorkerStoreModule {
@@ -16,10 +18,13 @@ class SlexWorkerStoreModule {
       }
     }
   }
-  createSyncAction = ({ action, nextState }) => {
+  createSyncAction = ({ prevState = {}, nextState, action }) => {
+    const partialState = _.pickBy(nextState, (value, key) => prevState[key] !== value)
+    const prevPartialState = _.pickBy(prevState, _.keys(partialState))
+    const differences = deepDiff.diff(prevPartialState, partialState) //, (path, key) => false)
     return {
       type: 'SYNC_WITH_WORKER_STORE',
-      nextState,
+      differences,
       action
     }
   }
@@ -28,10 +33,7 @@ class SlexWorkerStoreModule {
     return (state, action) => {
       switch (action.type) {
         case 'SYNC_WITH_WORKER_STORE':
-          return {
-            ...state,
-            ...action.nextState
-          }
+          return applyDifferences(action.differences, state)
         default:
           return baseReducer(state, action)
       }
@@ -78,10 +80,11 @@ class SlexWorkerStoreModule {
     const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
       const wrappedAppliedDispatch = action => {
+        const prevState = getState()
         const appliedResult = appliedDispatch(action)
         if (appliedResult.stateChanged) {
           // notify client of new state
-          workerGlobalContext.postMessage(this.createSyncAction({ action, nextState: appliedResult.nextState }))
+          workerGlobalContext.postMessage(this.createSyncAction({ prevState, nextState: appliedResult.nextState, action }))
         }
         return appliedResult
       }
