@@ -38,7 +38,7 @@
   "dependencies": {
     "deep-diff": "0.3.8",
     "lodash": "4.17.2",
-    "slex-store": "0.0.13"
+    "slex-store": "^0.1.0"
   },
   "devDependencies": {
     "babel": "6.23.0",
