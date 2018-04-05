@@ -1,5 +1,7 @@
 import { expect } from 'chai'
 import sinon from 'sinon'
+import deepDiff from '../src/deepDiff'
+import applyDiff from '../src/applyDiff'
 import workerStub from './workerStub'
 import slexStore from 'slex-store'
 import slexStoreWorker from '../src/slexStoreWorker'
@@ -16,62 +18,112 @@ describe('slexStoreWorker', function () {
   beforeEach(function () {
     sandbox.restore()
   })
-
   afterEach(function () {
     sandbox.restore()
   })
-
   describe('createSyncAction', function () {
-    const nextState = {}
-    const action = slexStoreWorker.createSyncAction({ nextState })
+    const state1 = {}
+    const state1Changed = {}
+    const state2 = {}
+    const prevState = {
+      state1,
+      state2
+    }
+    const nextState = {
+      state1: state1Changed,
+      state2
+    }
+    let diffStub
+    let action
+    const payloadAction = {}
+    const diffStubResult = []
+    beforeEach(function () {
+      diffStub = sandbox.stub(deepDiff, 'diff').returns(diffStubResult)
+      action = slexStoreWorker.createSyncAction({ prevState, nextState, action: payloadAction })
+    })
     it('should return an object', function () {
       expect(action).to.exist
       expect(typeof action === 'object').to.equal(true)
     })
     it('should have type SYNC_WITH_WORKER_STORE', function () {
-
       expect(action.type).to.exist
       expect(action.type).to.equal('SYNC_WITH_WORKER_STORE')
     })
-    it('should have nextState', function () {
-      expect(action.nextState).to.exist
-      expect(action.nextState).to.equal(nextState)
+    it('should have action', function () {
+      expect(action.action).to.exist
+      expect(action.action).to.equal(payloadAction)
+    })
+    it('should have differences from deep diff', function () {
+      expect(action.differences).to.exist
+      expect(action.differences).to.equal(diffStubResult)
+    })
+    it('should calculate deep diff only on the stores which have changed', function () {
+      expect(action.differences).to.exist
+      expect(diffStub.calledOnce).to.equal(true)
+      const diffPrevPartialStateKeys = Object.keys(diffStub.firstCall.args[0])
+      const diffNextPartialStateKeys = Object.keys(diffStub.firstCall.args[1])
+      expect(diffPrevPartialStateKeys.length).to.equal(1)
+      expect(diffNextPartialStateKeys.length).to.equal(1)
+      expect(diffStub.firstCall.args[0][diffPrevPartialStateKeys[0]]).to.equal(state1)
+      expect(diffStub.firstCall.args[1][diffNextPartialStateKeys[0]]).to.equal(state1Changed)
     })
   })
-
   describe('createClientReducer', function () {
+    const state1 = {}
+    const state2 = {}
+    const prevState = {
+      state1,
+      state2
+    }
+    const nextState = {
+      state1,
+      state2
+    }
+    let diffStub
+    let applyDiffStub
+    let createReducerStub
+    let baseReducerStub
+    const baseReducerStubResult = {}
+    const payloadAction = {}
+    const diffStubResult = []
+    const applyDiffStubResult = {}
+    beforeEach(function () {
+      baseReducerStub = sandbox.stub().returns(baseReducerStubResult)
+      createReducerStub = sandbox.stub(slexStore, 'createReducer').returns(baseReducerStub)
+      applyDiffStub = sandbox.stub(applyDiff, 'applyDifferences').returns(applyDiffStubResult)
+      diffStub = sandbox.stub(deepDiff, 'diff').returns(diffStubResult)
+    })
     it('should return a function', function () {
       const reducer = slexStoreWorker.createClientReducer()
       expect(reducer).to.exist
       expect(typeof reducer === 'function').to.equal(true)
     })
-    it('should return a reducer which returns nextState when the action is a sync action', function () {
-      const state = {}
-      const nextState = {}
-      const action = slexStoreWorker.createSyncAction({ nextState })
+    it('should return a reducer which applies differences when the action is a sync action', function () {
+      const action = slexStoreWorker.createSyncAction({ prevState, nextState, action: payloadAction })
       const reducer = slexStoreWorker.createClientReducer()
-      const reduceResult = reducer(state, action)
-      expect(reduceResult).to.equal(nextState)
+      const reduceResult = reducer(prevState, action)
+      expect(reduceResult).to.equal(applyDiffStubResult)
     })
-    it('should return a reducer which returns nextState when the action is any action other than a sync action', function () {
-      const state = {}
-      const nextState = {}
+    it('should return a reducer which returns baseReducer result when the action is any action other than a sync action', function () {
       const action = {}
       const reducer = slexStoreWorker.createClientReducer()
-      const reduceResult = reducer(state, action)
-      expect(reduceResult).to.equal(state)
+      const reduceResult = reducer(prevState, action)
+      expect(reduceResult).to.equal(baseReducerStubResult)
     })
   })
-
   describe('createClientDispatch', function () {
     const middleware = [{}]
     const sideEffects = []
+    const action = {}
+    const prevState = {}
     const nextState = {}
     let reducer
     let worker
+    let diffStub
     let createDispatchStub
     let applyDispatchStub
     let createDispatchStubResult
+    let diffStubResult = []
     let appliedDispatchStubResult = {
       stateChanged: true,
       nextState
@@ -79,6 +131,7 @@ describe('slexStoreWorker', function () {
     let createForwardActionToWorkerStoreMiddlewareStub
     let createForwardActionToWorkerStoreMiddlewareStubResult = {}
     beforeEach(function () {
+      diffStub = sandbox.stub(deepDiff, 'diff').returns(diffStubResult)
       createForwardActionToWorkerStoreMiddlewareStub = sandbox.stub(slexStoreWorker, 'createForwardActionToWorkerStoreMiddleware').returns(createForwardActionToWorkerStoreMiddlewareStubResult)
       applyDispatchStub = sandbox.stub().returns(appliedDispatchStubResult)
       createDispatchStubResult = {
@@ -151,7 +204,7 @@ describe('slexStoreWorker', function () {
         sideEffects
       })
       const event = {
-        data: slexStoreWorker.createSyncAction({ nextState })
+        data: slexStoreWorker.createSyncAction({ prevState, nextState, action })
       }
       const dispatch = sandbox.spy()
       const getState = sandbox.spy()
@@ -168,7 +221,7 @@ describe('slexStoreWorker', function () {
         sideEffects
       })
       const event = {
-        data: slexStoreWorker.createSyncAction({ nextState })
+        data: slexStoreWorker.createSyncAction({ prevState, nextState, action })
       }
       const dispatch = sandbox.spy()
       const getState = sandbox.spy()
@@ -179,7 +232,8 @@ describe('slexStoreWorker', function () {
       worker.onmessage(event)
       expect(dispatch.calledOnce).to.be.true
       expect(dispatch.firstCall.args[0].type).to.equal('SYNC_WITH_WORKER_STORE')
-      expect(dispatch.firstCall.args[0].nextState).to.equal(nextState)
+      expect(dispatch.firstCall.args[0].differences).to.equal(diffStubResult)
+      expect(dispatch.firstCall.args[0].action).to.equal(action)
     })
     it('should not dispatch anything onmessage when data is not sync action', function () {
       const result = slexStoreWorker.createClientDispatch({
@@ -201,21 +255,24 @@ describe('slexStoreWorker', function () {
       expect(dispatch.notCalled).to.be.true
     })
   })
-
   describe('createWorkerDispatch', function () {
     const middleware = []
     const sideEffects = []
+    const prevState = {}
     const nextState = {}
     let reducer
     let workerGlobalContext
+    let diffStub
     let createDispatchStub
     let applyDispatchStub
+    let diffStubResult = []
     let createDispatchStubResult
     let appliedDispatchStubResult = {
       stateChanged: true,
       nextState
     }
     beforeEach(function () {
+      diffStub = sandbox.stub(deepDiff, 'diff').returns(diffStubResult)
       applyDispatchStub = sandbox.stub().returns(appliedDispatchStubResult)
       createDispatchStubResult = {
         reducer: sandbox.spy(),
@@ -348,7 +405,8 @@ describe('slexStoreWorker', function () {
       appliedDispatch(action)
       expect(workerGlobalContext.postMessage.calledOnce).to.be.true
       expect(workerGlobalContext.postMessage.firstCall.args[0].type).to.equal('SYNC_WITH_WORKER_STORE')
-      expect(workerGlobalContext.postMessage.firstCall.args[0].nextState).to.equal(nextState)
+      expect(workerGlobalContext.postMessage.firstCall.args[0].action).to.equal(action)
+      expect(workerGlobalContext.postMessage.firstCall.args[0].differences).to.equal(diffStubResult)
     })
   })
   

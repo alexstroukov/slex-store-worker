@@ -1,6 +1,6 @@
 import slexStore from 'slex-store'
-import deepDiff from 'deep-diff'
-import applyDifferences from './applyDifferences'
+import deepDiff from './deepDiff'
+import applyDiff from './applyDiff'
 import _ from 'lodash'
 
 class SlexWorkerStoreModule {
@@ -20,7 +20,7 @@ class SlexWorkerStoreModule {
   }
   createSyncAction = ({ prevState = {}, nextState, action }) => {
     const partialState = _.pickBy(nextState, (value, key) => prevState[key] !== value)
-    const prevPartialState = _.pickBy(prevState, _.keys(partialState))
+    const prevPartialState = _.pick(prevState, _.keys(partialState))
     const differences = deepDiff.diff(prevPartialState, partialState) //, (path, key) => false)
     return {
       type: 'SYNC_WITH_WORKER_STORE',
@@ -33,7 +33,7 @@ class SlexWorkerStoreModule {
     return (state, action) => {
       switch (action.type) {
         case 'SYNC_WITH_WORKER_STORE':
-          return applyDifferences(action.differences, state)
+          return applyDiff.applyDifferences(action.differences, state)
         default:
           return baseReducer(state, action)
       }
