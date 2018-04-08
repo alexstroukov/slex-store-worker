@@ -7,14 +7,15 @@ class ApplyDiff {
   arrayAdd = (array, item, index) => {
     return [...array.slice(0, index), item, ...array.slice(index + 1)]
   }
-  applyArrayChange =(target, change) => {
-    const array = _.get(target, path)
-    switch (change.kind) {
+  applyArrayChange = (target, change) => {
+    const array = _.get(target, change.path)
+    switch (change.item.kind) {
       case 'D':
         return this.setValue(target, change.path, this.arrayRemove(array, change.index))
       case 'E':
       case 'N':
-        return this.setValue(target, change.path, this.arrayAdd(array, change.index, change.item.rhs))
+        debugger
+        return this.setValue(target, change.path, this.arrayAdd(array, change.item.rhs, change.index))
     }
   }
   setValue = (target, path, rhs) => {
@@ -45,7 +46,6 @@ class ApplyDiff {
     }
   }
   applyDifferences = (differences, state) => {
-    debugger
     return _.chain(differences)
       .reduce(this.applyChange, state)
       .value()

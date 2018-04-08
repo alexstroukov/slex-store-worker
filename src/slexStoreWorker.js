@@ -1,9 +1,19 @@
 import slexStore from 'slex-store'
 import deepDiff from './deepDiff'
 import applyDiff from './applyDiff'
+import { defer } from './utils'
 import _ from 'lodash'
 
 class SlexWorkerStoreModule {
+  _initialSyncDeferred = defer()
+  deferUntilInitialSync = (fn) => {
+    return (...args) => {
+      return this._initialSyncDeferred.promise
+        .then(() => {
+          return fn(...args)
+        })
+    }
+  }
   createWorkerResponseMiddleware = middleware => {
     return ({ prevState, nextState, action }) => {
       if (action.type === 'SYNC_WITH_WORKER_STORE') {
@@ -61,6 +71,7 @@ class SlexWorkerStoreModule {
         if (event.data.type === 'SYNC_WITH_WORKER_STORE') {
           const action = event.data
           const { action: originalAction, nextState } = action
+          this._initialSyncDeferred.resolve()
           dispatch(action)
         }
       }
