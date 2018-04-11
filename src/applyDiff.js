@@ -14,7 +14,6 @@ class ApplyDiff {
         return this.setValue(target, change.path, this.arrayRemove(array, change.index))
       case 'E':
       case 'N':
-        debugger
         return this.setValue(target, change.path, this.arrayAdd(array, change.item.rhs, change.index))
     }
   }
