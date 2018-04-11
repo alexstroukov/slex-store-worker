@@ -71,8 +71,11 @@ class SlexWorkerStoreModule {
         if (event.data.type === 'SYNC_WITH_WORKER_STORE') {
           const action = event.data
           const { action: originalAction, nextState } = action
-          this._initialSyncDeferred.resolve()
-          dispatch(action)
+          const isInitAction = originalAction.type === slexStore.initialAction.type
+          dispatch(action, isInitAction)
+          if (isInitAction) {
+            this._initialSyncDeferred.resolve()
+          }
         }
       }
       return appliedDispatch
