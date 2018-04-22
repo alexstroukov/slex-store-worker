@@ -21,7 +21,7 @@ describe('slexStoreWorker', function () {
   afterEach(function () {
     sandbox.restore()
   })
-  describe('createSyncAction', function () {
+  describe('createSyncForClientAction', function () {
     const state1 = {}
     const state1Changed = {}
     const state2 = {}
@@ -39,15 +39,15 @@ describe('slexStoreWorker', function () {
     const diffStubResult = []
     beforeEach(function () {
       diffStub = sandbox.stub(deepDiff, 'diff').returns(diffStubResult)
-      action = slexStoreWorker.createSyncAction({ prevState, nextState, action: payloadAction })
+      action = slexStoreWorker.createSyncForClientAction({ prevState, nextState, action: payloadAction })
     })
     it('should return an object', function () {
       expect(action).to.exist
       expect(typeof action === 'object').to.equal(true)
     })
-    it('should have type SYNC_WITH_WORKER_STORE', function () {
+    it('should have type SYNC_FOR_CLIENT_STORE', function () {
       expect(action.type).to.exist
-      expect(action.type).to.equal('SYNC_WITH_WORKER_STORE')
+      expect(action.type).to.equal('SYNC_FOR_CLIENT_STORE')
     })
     it('should have action', function () {
       expect(action.action).to.exist
@@ -99,7 +99,7 @@ describe('slexStoreWorker', function () {
       expect(typeof reducer === 'function').to.equal(true)
     })
     it('should return a reducer which applies differences when the action is a sync action', function () {
-      const action = slexStoreWorker.createSyncAction({ prevState, nextState, action: payloadAction })
+      const action = slexStoreWorker.createSyncForClientAction({ prevState, nextState, action: payloadAction })
       const reducer = slexStoreWorker.createClientReducer()
       const reduceResult = reducer(prevState, action)
       expect(reduceResult).to.equal(applyDiffStubResult)
@@ -128,11 +128,11 @@ describe('slexStoreWorker', function () {
       stateChanged: true,
       nextState
     }
-    let createForwardActionToWorkerStoreMiddlewareStub
-    let createForwardActionToWorkerStoreMiddlewareStubResult = {}
+    let createForwardActionToWorkerStoreSideEffectStub
+    let createForwardActionToWorkerStoreSideEffectStubResult = {}
     beforeEach(function () {
       diffStub = sandbox.stub(deepDiff, 'diff').returns(diffStubResult)
-      createForwardActionToWorkerStoreMiddlewareStub = sandbox.stub(slexStoreWorker, 'createForwardActionToWorkerStoreMiddleware').returns(createForwardActionToWorkerStoreMiddlewareStubResult)
+      createForwardActionToWorkerStoreSideEffectStub = sandbox.stub(slexStoreWorker, 'createForwardActionToWorkerStoreSideEffect').returns(createForwardActionToWorkerStoreSideEffectStubResult)
       applyDispatchStub = sandbox.stub().returns(appliedDispatchStubResult)
       createDispatchStubResult = {
         reducer: sandbox.spy(),
@@ -170,15 +170,15 @@ describe('slexStoreWorker', function () {
       })
       expect(createDispatchStub.firstCall.args[0].sideEffects).to.equal(sideEffects)
     })
-    it('should createForwardActionToWorkerStoreMiddleware and prefix the middleware with the created forwardActionToWorkerStoreMiddleware', function () {
+    it('should createForwardActionToWorkerStoreSideEffect and prefix the middleware with the created forwardActionToWorkerStoreMiddleware', function () {
       const result = slexStoreWorker.createClientDispatch({
         worker,
         reducer,
         middleware,
         sideEffects
       })
-      expect(createForwardActionToWorkerStoreMiddlewareStub.calledOnce).to.be.true
-      expect(createDispatchStub.firstCall.args[0].middleware[0]).to.equal(createForwardActionToWorkerStoreMiddlewareStubResult)
+      expect(createForwardActionToWorkerStoreSideEffectStub.calledOnce).to.be.true
+      expect(createDispatchStub.firstCall.args[0].middleware[0]).to.equal(createForwardActionToWorkerStoreSideEffectStubResult)
       expect(createDispatchStub.firstCall.args[0].middleware[1]).to.equal(middleware[0])
     })
     it('should return an object with applyDispatch which wraps the slex store applyDispatch', function () {
@@ -204,7 +204,7 @@ describe('slexStoreWorker', function () {
         sideEffects
       })
       const event = {
-        data: slexStoreWorker.createSyncAction({ prevState, nextState, action })
+        data: slexStoreWorker.createSyncForClientAction({ prevState, nextState, action })
       }
       const dispatch = sandbox.spy()
       const getState = sandbox.spy()
@@ -221,7 +221,7 @@ describe('slexStoreWorker', function () {
         sideEffects
       })
       const event = {
-        data: slexStoreWorker.createSyncAction({ prevState, nextState, action })
+        data: slexStoreWorker.createSyncForClientAction({ prevState, nextState, action })
       }
       const dispatch = sandbox.spy()
       const getState = sandbox.spy()
@@ -231,7 +231,7 @@ describe('slexStoreWorker', function () {
       expect(worker.onmessage).to.exist
       worker.onmessage(event)
       expect(dispatch.calledOnce).to.be.true
-      expect(dispatch.firstCall.args[0].type).to.equal('SYNC_WITH_WORKER_STORE')
+      expect(dispatch.firstCall.args[0].type).to.equal('SYNC_FOR_CLIENT_STORE')
       expect(dispatch.firstCall.args[0].differences).to.equal(diffStubResult)
       expect(dispatch.firstCall.args[0].action).to.equal(action)
     })
@@ -404,18 +404,18 @@ describe('slexStoreWorker', function () {
       const appliedDispatch = result.applyDispatch({ dispatch, getState, setState, notifyListeners })
       appliedDispatch(action)
       expect(workerGlobalContext.postMessage.calledOnce).to.be.true
-      expect(workerGlobalContext.postMessage.firstCall.args[0].type).to.equal('SYNC_WITH_WORKER_STORE')
+      expect(workerGlobalContext.postMessage.firstCall.args[0].type).to.equal('SYNC_FOR_CLIENT_STORE')
       expect(workerGlobalContext.postMessage.firstCall.args[0].action).to.equal(action)
       expect(workerGlobalContext.postMessage.firstCall.args[0].differences).to.equal(diffStubResult)
     })
   })
   
-  describe('createForwardActionToWorkerStoreMiddleware', function () {
+  describe('createForwardActionToWorkerStoreSideEffect', function () {
     let worker
     let dispatchStub
     let getStateStub
-    const action = { type: 'createForwardActionToWorkerStoreMiddlewareTest' }
-    const syncAction = slexStoreWorker.createSyncAction({})
+    const action = { type: 'createForwardActionToWorkerStoreSideEffectTest' }
+    const syncAction = slexStoreWorker.createSyncForClientAction({})
     beforeEach(function () {
       dispatchStub = sandbox.stub()
       getStateStub = sandbox.stub()
@@ -424,18 +424,18 @@ describe('slexStoreWorker', function () {
       }
     })
     it('should return a function', function () {
-      const middleware = slexStoreWorker.createForwardActionToWorkerStoreMiddleware({ worker })
+      const middleware = slexStoreWorker.createForwardActionToWorkerStoreSideEffect({ worker })
       expect(middleware).to.exist
       expect(typeof middleware === 'function').to.equal(true)
     })
     it('should return a middleware which forwards actions to worker', function () {
-      const middleware = slexStoreWorker.createForwardActionToWorkerStoreMiddleware({ worker })
+      const middleware = slexStoreWorker.createForwardActionToWorkerStoreSideEffect({ worker })
       middleware(dispatchStub, getStateStub, action)
       expect(worker.postMessage.calledOnce).to.be.true
       expect(worker.postMessage.firstCall.args[0]).to.equal(action)
     })
     it('should return a middleware which ignores sync actions', function () {
-      const middleware = slexStoreWorker.createForwardActionToWorkerStoreMiddleware({ worker })
+      const middleware = slexStoreWorker.createForwardActionToWorkerStoreSideEffect({ worker })
       middleware(dispatchStub, getStateStub, syncAction)
       expect(worker.postMessage.called).to.be.false
     })
