@@ -104,16 +104,16 @@ class SlexStoreWorker {
       middleware,
       sideEffects
     })
+    const postMessage = _.debounce(workerGlobalContext.postMessage, 100)
     const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
       const wrappedAppliedDispatch = (action, options) => {
-        debugger
         const prevState = getState()
         const appliedResult = appliedDispatch(action, options)
         const isInitAction = action.type === slexStore.initialAction.type
         if (!isInitAction && appliedResult.stateChanged) {
           // notify client of new state
-          workerGlobalContext.postMessage(this.createSyncForClientAction({ prevState, nextState: appliedResult.nextState, action }))
+          postMessage(this.createSyncForClientAction({ prevState, nextState: appliedResult.nextState, action }))
         }
         return appliedResult
       }
@@ -126,7 +126,6 @@ class SlexStoreWorker {
           const prevPartialState = _.pick(prevState, _.keys(partialState))
           const differences = deepDiff.diff(prevPartialState, partialState)
           const nextState = applyDiff.applyDifferences(differences, prevState)
-          debugger
           const isInitAction = forwardedAction.type === slexStore.initialAction.type
           wrappedAppliedDispatch(forwardedAction, { skipHooks: isInitAction, appliedPrevState: nextState })
         }
