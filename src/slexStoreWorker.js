@@ -1,7 +1,7 @@
 import slexStore from 'slex-store'
 import deepDiff from './deepDiff'
 import applyDiff from './applyDiff'
-import { defer } from './utils'
+import { buffer, defer } from './utils'
 import _ from 'lodash'
 
 class SlexStoreWorker {
@@ -14,29 +14,14 @@ class SlexStoreWorker {
         })
     }
   }
-  createWorkerResponseSideEffect = sideEffect => {
-    return ({ prevState, nextState, action }) => {
-      if (action.type === 'SYNC_FOR_CLIENT_STORE') {
-        const forwardedAction = action.action
-        if (forwardedAction) {
-          return sideEffect({ prevState, nextState, action: forwardedAction })
-        } else {
-          return sideEffect({ prevState, nextState, action })
-        }
-      } else {
-        return sideEffect({ prevState, nextState, action })
-      }
-    }
-  }
-  createSyncForClientAction = ({ prevState, nextState, action }) => {
-    const differences = this._calculateDifferences({ prevState, nextState })
+  createSyncForClientAction = ({ differences, isInitAction }) => {
     return {
       type: 'SYNC_FOR_CLIENT_STORE',
       differences,
-      action
+      isInitAction
     }
   }
-  _calculateDifferences = ({ prevState = {}, nextState }) => {
+  calculateDifferences = ({ prevState = {}, nextState }) => {
     const partialState = _.pickBy(nextState, (value, key) => prevState[key] !== value)
     const prevPartialState = _.pick(prevState, _.keys(partialState))
     const differences = deepDiff.diff(prevPartialState, partialState)
@@ -69,12 +54,12 @@ class SlexStoreWorker {
       }
     }
   }
-  createClientDispatch = ({ worker, reducer, middleware = [], sideEffects = [], blacklist = [] }) => {
+  createClientDispatch = ({ worker, reducer, middleware = [], sideEffects = [], ...rest }) => {
     const createdDispatch = slexStore.createDispatch({
       reducer,
       middleware,
       sideEffects: [this.createForwardActionToWorkerStoreSideEffect({ worker }), ...sideEffects],
-      blacklist
+      ...rest
     })
     const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
@@ -82,10 +67,8 @@ class SlexStoreWorker {
       worker.onmessage = event => {
         if (event.data.type === 'SYNC_FOR_CLIENT_STORE') {
           const action = event.data
-          const { action: originalAction, nextState } = action
-          const isInitAction = originalAction.type === slexStore.initialAction.type
-          dispatch(action, { skipHooks: isInitAction })
-          if (isInitAction) {
+          dispatch(action, { skipHooks: action.isInitAction })
+          if (action.isInitAction) {
             this._initialSyncDeferred.resolve()
           }
         }
@@ -95,7 +78,7 @@ class SlexStoreWorker {
     return {
       applyDispatch: wrappedApplyDispatch,
       reducer: createdDispatch.reducer,
-      blacklist: createdDispatch.blacklist
+      ...rest
     }
   }
   createWorkerDispatch = ({ workerGlobalContext, reducer, middleware = [], sideEffects = [] }) => {
@@ -104,7 +87,10 @@ class SlexStoreWorker {
       middleware,
       sideEffects
     })
-    const postMessage = _.debounce(workerGlobalContext.postMessage, 100)
+    const postMessage = buffer((allDifferences) => {
+      const differences = _.flatten(allDifferences)
+      workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
+    }, 100)
     const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
       const wrappedAppliedDispatch = (action, options) => {
@@ -113,7 +99,8 @@ class SlexStoreWorker {
         const isInitAction = action.type === slexStore.initialAction.type
         if (!isInitAction && appliedResult.stateChanged) {
           // notify client of new state
-          postMessage(this.createSyncForClientAction({ prevState, nextState: appliedResult.nextState, action }))
+          const differences = this.calculateDifferences({ prevState, nextState: appliedResult.nextState })
+          postMessage(differences)
         }
         return appliedResult
       }
