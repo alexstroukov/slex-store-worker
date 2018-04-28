@@ -81,16 +81,29 @@ class SlexStoreWorker {
       ...rest
     }
   }
+  prioritiseAction = (action) => {
+    return {
+      ...action,
+      slex_store_worker_priority: true
+    }
+  }
   createWorkerDispatch = ({ workerGlobalContext, reducer, middleware = [], sideEffects = [] }) => {
     const createdDispatch = slexStore.createDispatch({
       reducer,
       middleware,
       sideEffects
     })
-    const postMessage = buffer((allDifferences) => {
+    const bufferedPostMessage = buffer((allDifferences) => {
       const differences = _.flatten(allDifferences)
       workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
     }, 100)
+    const postMessage = ({ differences, action }) => {
+      if (action.worker_priority) {
+        workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
+      } else {
+        bufferedPostMessage(differences)
+      }
+    }
     const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
       const wrappedAppliedDispatch = (action, options) => {
@@ -100,7 +113,7 @@ class SlexStoreWorker {
         if (!isInitAction && appliedResult.stateChanged) {
           // notify client of new state
           const differences = this.calculateDifferences({ prevState, nextState: appliedResult.nextState })
-          postMessage(differences)
+          postMessage({ differences, action })
         }
         return appliedResult
       }
