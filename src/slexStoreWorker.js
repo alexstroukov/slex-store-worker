@@ -14,11 +14,12 @@ class SlexStoreWorker {
         })
     }
   }
-  createSyncForClientAction = ({ differences, isInitAction }) => {
+  createSyncForClientAction = ({ differences, isInitAction, action }) => {
     return {
       type: 'SYNC_FOR_CLIENT_STORE',
       differences,
-      isInitAction
+      isInitAction,
+      react_slex_store_disconnected: _.get(action, 'react_slex_store_disconnected')
     }
   }
   calculateDifferences = ({ prevState = {}, nextState }) => {
@@ -94,12 +95,17 @@ class SlexStoreWorker {
       sideEffects
     })
     const bufferedPostMessage = buffer((allDifferences) => {
-      const differences = _.flatten(allDifferences)
-      workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
+      const differences = _.chain(allDifferences)
+        .flatten()
+        .reject(_.isUndefined)
+        .value()
+      if (differences && differences.length && differences.length > 0) {
+        workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
+      }
     }, 100)
     const postMessage = ({ differences, action }) => {
-      if (action.worker_priority) {
-        workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
+      if (action.slex_store_worker_priority) {
+        workerGlobalContext.postMessage(this.createSyncForClientAction({ action, differences }))
       } else {
         bufferedPostMessage(differences)
       }
