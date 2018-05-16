@@ -60,65 +60,37 @@ class DeepDiff {
     arr.push.apply(arr, rest)
     return arr
   }
-  deepDiff = (lhs, rhs, changes, prefilter, path, key, stack) => {
-    path = path || []
-    stack = stack || []
-    var currentPath = path.slice(0)
-    if (typeof key !== 'undefined') {
-      if (prefilter) {
-        if (typeof(prefilter) === 'function' && prefilter(currentPath, key)) {
-          return
-        } else if (typeof(prefilter) === 'object') {
-          if (prefilter.prefilter && prefilter.prefilter(currentPath, key)) {
-            return
-          }
-          if (prefilter.normalize) {
-            var alt = prefilter.normalize(currentPath, key, lhs, rhs)
-            if (alt) {
-              lhs = alt[0]
-              rhs = alt[1]
-            }
-          }
-        }
-      }
-      currentPath.push(key)
-    }
+  deepDiff = (lhs, rhs, changes, path, key, stack = []) => {
+    const currentPath = !!path && !!key
+      ? `${path}.${key}`
+      : `${path || ''}${path ? '.' + key || '' : key || '' }`
+    const ltype = typeof lhs
+    const rtype = typeof rhs
   
-    // Use string comparison for regexes
-    if (this.realTypeOf(lhs) === 'regexp' && this.realTypeOf(rhs) === 'regexp') {
-      lhs = lhs.toString();
-      rhs = rhs.toString();
-    }
-  
-    var ltype = typeof lhs
-    var rtype = typeof rhs
-  
-    var ldefined = ltype !== 'undefined' || (stack && stack[stack.length - 1].lhs && stack[stack.length - 1].lhs.hasOwnProperty(key))
-    var rdefined = rtype !== 'undefined' || (stack && stack[stack.length - 1].rhs && stack[stack.length - 1].rhs.hasOwnProperty(key))
-  
+    const ldefined = ltype !== 'undefined' || (stack && stack[stack.length - 1].lhs && stack[stack.length - 1].lhs.hasOwnProperty(key))
+    const rdefined = rtype !== 'undefined' || (stack && stack[stack.length - 1].rhs && stack[stack.length - 1].rhs.hasOwnProperty(key))
+
     if (!ldefined && rdefined) {
       changes(new DiffNew(currentPath, rhs))
     } else if (!rdefined && ldefined) {
       changes(new DiffDeleted(currentPath, lhs))
     } else if (this.realTypeOf(lhs) !== this.realTypeOf(rhs)) {
       changes(new DiffEdit(currentPath, lhs, rhs))
-    } else if (this.realTypeOf(lhs) === 'date' && (lhs - rhs) !== 0) {
-      changes(new DiffEdit(currentPath, lhs, rhs))
     } else if (ltype === 'object' && lhs !== null && rhs !== null) {
-      if (!stack.filter((x) => {
-          return x.lhs === lhs; }).length) {
-        stack.push({ lhs: lhs, rhs: rhs });
+      const stackHasLhs = stack.filter((stackItem) => stackItem.lhs === lhs).length
+      if (!stackHasLhs) {
+        stack.push({ lhs: lhs, rhs: rhs })
         if (Array.isArray(lhs)) {
-          var i, len = lhs.length;
+          var i, len = lhs.length
           for (i = 0; i < lhs.length; i++) {
             if (i >= rhs.length) {
-              changes(new DiffArray(currentPath, i, new DiffDeleted(undefined, lhs[i])));
+              changes(new DiffArray(currentPath, i, new DiffDeleted(undefined, lhs[i])))
             } else {
-              this.deepDiff(lhs[i], rhs[i], changes, prefilter, currentPath, i, stack);
+              this.deepDiff(lhs[i], rhs[i], changes, currentPath, i, stack)
             }
           }
           while (i < rhs.length) {
-            changes(new DiffArray(currentPath, i, new DiffNew(undefined, rhs[i++])));
+            changes(new DiffArray(currentPath, i, new DiffNew(undefined, rhs[i++])))
           }
         } else {
           var akeys = Object.keys(lhs)
@@ -126,14 +98,14 @@ class DeepDiff {
           akeys.forEach((k, i) => {
             var other = pkeys.indexOf(k)
             if (other >= 0) {
-              this.deepDiff(lhs[k], rhs[k], changes, prefilter, currentPath, k, stack)
+              this.deepDiff(lhs[k], rhs[k], changes, currentPath, k, stack)
               pkeys = this.arrayRemove(pkeys, other)
             } else {
-              this.deepDiff(lhs[k], undefined, changes, prefilter, currentPath, k, stack)
+              this.deepDiff(lhs[k], undefined, changes, currentPath, k, stack)
             }
           })
           pkeys.forEach((k) => {
-            this.deepDiff(undefined, rhs[k], changes, prefilter, currentPath, k, stack)
+            this.deepDiff(undefined, rhs[k], changes, currentPath, k, stack)
           })
         }
         stack.length = stack.length - 1
@@ -147,14 +119,10 @@ class DeepDiff {
       }
     }
   }
-  diff = (lhs, rhs, prefilter, accum) => {
-    accum = accum || []
-    this.deepDiff(lhs, rhs, (diff) => {
-      if (diff) {
-        accum.push(diff)
-      }
-    }, prefilter)
-    return (accum.length) ? accum : undefined
+  diff = (lhs, rhs) => {
+    const differences = []
+    this.deepDiff(lhs, rhs, (diff) => diff && differences.push(diff))
+    return differences
   }
 }
 

@@ -18,7 +18,14 @@ class ApplyDiff {
     }
   }
   setValue = (target, path, rhs) => {
-    return _.setWith({ ...target }, path, rhs, this.immutableCustomiser)
+    if (rhs === undefined) {
+      return _.chain({ ...target })
+        .setWith(path, rhs, this.immutableCustomiser)
+        .omit(path)
+        .value()
+    } else {
+      return _.setWith({ ...target }, path, rhs, this.immutableCustomiser)
+    }
   }
   immutableCustomiser = (currentValue) => {
     if (_.isArray(currentValue)) {

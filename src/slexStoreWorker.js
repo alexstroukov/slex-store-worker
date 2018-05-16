@@ -97,7 +97,6 @@ class SlexStoreWorker {
     const bufferedPostMessage = buffer((allDifferences) => {
       const differences = _.chain(allDifferences)
         .flatten()
-        .reject(_.isUndefined)
         .value()
       if (differences && differences.length && differences.length > 0) {
         workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
