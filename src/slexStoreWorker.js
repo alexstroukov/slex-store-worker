@@ -14,12 +14,11 @@ class SlexStoreWorker {
         })
     }
   }
-  createSyncForClientAction = ({ differences, isInitAction, action }) => {
+  createSyncForClientAction = ({ differences, isInitAction }) => {
     return {
       type: 'SYNC_FOR_CLIENT_STORE',
       differences,
-      isInitAction,
-      react_slex_store_disconnected: _.get(action, 'react_slex_store_disconnected')
+      isInitAction
     }
   }
   calculateDifferences = ({ prevState = {}, nextState }) => {
@@ -28,11 +27,10 @@ class SlexStoreWorker {
     const differences = deepDiff.diff(prevPartialState, partialState)
     return differences
   }
-  createSyncForWorkerAction = ({ prevState = {}, nextState, action, clientOnlyStores = ['form', 'route'] }) => {
-    const partialState = _.pick(nextState, clientOnlyStores)
+  createSyncForWorkerAction = ({ prevState = {}, nextState, action }) => {
     return {
       type: 'SYNC_FOR_WORKER_STORE',
-      partialState,
+      nextState,
       action
     }
   }
@@ -47,18 +45,14 @@ class SlexStoreWorker {
       }
     }
   }
-  createForwardActionToWorkerStoreSideEffect = ({ worker }) => {
-    // forward action to worker
-    return ({ prevState, nextState, action }) => {
-      if (action.type && action.type !== 'SYNC_FOR_CLIENT_STORE') {
-        worker.postMessage(this.createSyncForWorkerAction({ prevState, nextState, action }))
-      }
+  createForwardActionToWorkerStoreSideEffect = ({ worker }) => ({ prevState, nextState, action }) => {
+    if (action && action.type !== 'SYNC_FOR_CLIENT_STORE') {
+      worker.postMessage(this.createSyncForWorkerAction({ prevState, nextState, action }))
     }
   }
-  createClientDispatch = ({ worker, reducer, middleware = [], sideEffects = [], ...rest }) => {
+  createClientDispatch = ({ worker, reducer, sideEffects = [], ...rest }) => {
     const createdDispatch = slexStore.createDispatch({
       reducer,
-      middleware,
       sideEffects: [this.createForwardActionToWorkerStoreSideEffect({ worker }), ...sideEffects],
       ...rest
     })
@@ -82,33 +76,21 @@ class SlexStoreWorker {
       ...rest
     }
   }
-  prioritiseAction = (action) => {
-    return {
-      ...action,
-      slex_store_worker_priority: true
+  createBufferedPostMessage = ({ workerGlobalContext }) => buffer(this.createPostMessage({ workerGlobalContext }))
+  createPostMessage = ({ workerGlobalContext }) => (allDifferences) => {
+    const differences = _.chain(allDifferences)
+      .flatten()
+      .value()
+    if (differences && differences.length && differences.length > 0) {
+      workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
     }
   }
-  createWorkerDispatch = ({ workerGlobalContext, reducer, middleware = [], sideEffects = [] }) => {
+  createWorkerDispatch = ({ workerGlobalContext, reducer, sideEffects = [] }) => {
     const createdDispatch = slexStore.createDispatch({
       reducer,
-      middleware,
       sideEffects
     })
-    const bufferedPostMessage = buffer((allDifferences) => {
-      const differences = _.chain(allDifferences)
-        .flatten()
-        .value()
-      if (differences && differences.length && differences.length > 0) {
-        workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
-      }
-    }, 100)
-    const postMessage = ({ differences, action }) => {
-      if (action.slex_store_worker_priority) {
-        workerGlobalContext.postMessage(this.createSyncForClientAction({ action, differences }))
-      } else {
-        bufferedPostMessage(differences)
-      }
-    }
+    const bufferedPostMessage = this.createBufferedPostMessage({ workerGlobalContext })
     const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
       const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
       const wrappedAppliedDispatch = (action, options) => {
@@ -118,7 +100,7 @@ class SlexStoreWorker {
         if (!isInitAction && appliedResult.stateChanged) {
           // notify client of new state
           const differences = this.calculateDifferences({ prevState, nextState: appliedResult.nextState })
-          postMessage({ differences, action })
+          bufferedPostMessage(differences)
         }
         return appliedResult
       }
@@ -126,13 +108,24 @@ class SlexStoreWorker {
       workerGlobalContext.addEventListener('message', event => {
         const action = event.data
         if (action && action.type && action.type === 'SYNC_FOR_WORKER_STORE') {
-          const { partialState, action: forwardedAction } = action
+          const { nextState, action: forwardedAction } = action
           const prevState = getState()
-          const prevPartialState = _.pick(prevState, _.keys(partialState))
-          const differences = deepDiff.diff(prevPartialState, partialState)
-          const nextState = applyDiff.applyDifferences(differences, prevState)
-          const isInitAction = forwardedAction.type === slexStore.initialAction.type
-          wrappedAppliedDispatch(forwardedAction, { skipHooks: isInitAction, appliedPrevState: nextState })
+          const differences = deepDiff.diff(prevState, nextState)
+          const appliedNextState = applyDiff.applyDifferences(differences, prevState)
+          if (_.isArray(forwardedAction)) {
+            const appliedDispatch = _.chain(forwardedAction)
+              .flatten()
+              .reduce((appliedDispatch, action) => {
+                const { nextState } = appliedDispatch
+                const isInitAction = action.type === slexStore.initialAction.type
+                return wrappedAppliedDispatch(action, { skipHooks: isInitAction, appliedPrevState: nextState })
+              }, { nextState: appliedNextState })
+              .value()
+            return appliedDispatch
+          } else {
+            const isInitAction = forwardedAction.type === slexStore.initialAction.type
+            return wrappedAppliedDispatch(forwardedAction, { skipHooks: isInitAction, appliedPrevState: appliedNextState })
+          }
         }
       })
       return wrappedAppliedDispatch

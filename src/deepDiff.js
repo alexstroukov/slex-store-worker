@@ -1,40 +1,34 @@
-class Diff {
-  constructor (kind, path) {
-    this.kind = kind
-    this.path = path
-  }
-}
-class DiffEdit extends Diff {
-  constructor (path, origin, value) {
-    super('E', path)
-    this.lhs = origin
-    this.rhs = value
-  }
-}
-
-class DiffNew extends Diff {
-  constructor (path, value) {
-    super('N', path)
-    this.rhs = value
-  }
-}
-
-class DiffDeleted extends Diff {
-  constructor (path, value) {
-    super('D', path)
-    this.lhs = value
-  }
-}
-
-class DiffArray extends Diff {
-  constructor (path, index, item) {
-    super('A', path)
-    this.index = index
-    this.item = item
-  }
-}
-
 class DeepDiff {
+  createDiffEdit = (path, origin, value) => {
+    return {
+      kind: 'E',
+      path,
+      lhs: origin,
+      rhs: value,
+    }
+  }
+  createDiffNew = (path, value) => {
+    return {
+      kind: 'N',
+      path,
+      rhs: value
+    }
+  }
+  createDiffDeleted = (path, value) => {
+    return {
+      kind: 'D',
+      path,
+      lhs: value
+    }
+  }
+  createDiffArray = (path, index, item) => {
+    return {
+      kind: 'A',
+      path,
+      index: index,
+      item: item,
+    }
+  }
   realTypeOf = (subject) => {
     var type = typeof subject
     if (type !== 'object') {
@@ -71,11 +65,11 @@ class DeepDiff {
     const rdefined = rtype !== 'undefined' || (stack && stack[stack.length - 1].rhs && stack[stack.length - 1].rhs.hasOwnProperty(key))
 
     if (!ldefined && rdefined) {
-      changes(new DiffNew(currentPath, rhs))
+      changes(this.createDiffNew(currentPath, rhs))
     } else if (!rdefined && ldefined) {
-      changes(new DiffDeleted(currentPath, lhs))
+      changes(this.createDiffDeleted(currentPath, lhs))
     } else if (this.realTypeOf(lhs) !== this.realTypeOf(rhs)) {
-      changes(new DiffEdit(currentPath, lhs, rhs))
+      changes(this.createDiffEdit(currentPath, lhs, rhs))
     } else if (ltype === 'object' && lhs !== null && rhs !== null) {
       const stackHasLhs = stack.filter((stackItem) => stackItem.lhs === lhs).length
       if (!stackHasLhs) {
@@ -84,13 +78,13 @@ class DeepDiff {
           var i, len = lhs.length
           for (i = 0; i < lhs.length; i++) {
             if (i >= rhs.length) {
-              changes(new DiffArray(currentPath, i, new DiffDeleted(undefined, lhs[i])))
+              changes(this.createDiffArray(currentPath, i, this.createDiffDeleted(undefined, lhs[i])))
             } else {
               this.deepDiff(lhs[i], rhs[i], changes, currentPath, i, stack)
             }
           }
           while (i < rhs.length) {
-            changes(new DiffArray(currentPath, i, new DiffNew(undefined, rhs[i++])))
+            changes(this.createDiffArray(currentPath, i, this.createDiffNew(undefined, rhs[i++])))
           }
         } else {
           var akeys = Object.keys(lhs)
@@ -111,11 +105,11 @@ class DeepDiff {
         stack.length = stack.length - 1
       } else if (lhs !== rhs) {
         // lhs is contains a cycle at this element and it differs from rhs
-        changes(new DiffEdit(currentPath, lhs, rhs))
+        changes(this.createDiffEdit(currentPath, lhs, rhs))
       }
     } else if (lhs !== rhs) {
       if (!(ltype === 'number' && isNaN(lhs) && isNaN(rhs))) {
-        changes(new DiffEdit(currentPath, lhs, rhs))
+        changes(this.createDiffEdit(currentPath, lhs, rhs))
       }
     }
   }
