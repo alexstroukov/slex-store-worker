@@ -1,19 +1,9 @@
-import slexStore from 'slex-store'
 import deepDiff from './deepDiff'
 import applyDiff from './applyDiff'
 import { buffer, defer } from './utils'
 import _ from 'lodash'
 
 class SlexStoreWorker {
-  _initialSyncDeferred = defer()
-  deferUntilInitialSync = (fn) => {
-    return (...args) => {
-      return this._initialSyncDeferred.promise
-        .then(() => {
-          return fn(...args)
-        })
-    }
-  }
   createSyncForClientAction = ({ differences, isInitAction }) => {
     return {
       type: 'SYNC_FOR_CLIENT_STORE',
@@ -34,14 +24,16 @@ class SlexStoreWorker {
       action
     }
   }
-  createClientReducer = (reducers) => {
-    const baseReducer = slexStore.createReducer(reducers)
+  defaultReduce = (state, action) => {
+    return state
+  }
+  createClientReducer = (reducer = this.defaultReduce) => {
     return (state, action) => {
       switch (action.type) {
         case 'SYNC_FOR_CLIENT_STORE':
           return applyDiff.applyDifferences(action.differences, state)
         default:
-          return baseReducer(state, action)
+          return reducer(state, action)
       }
     }
   }
@@ -50,29 +42,20 @@ class SlexStoreWorker {
       worker.postMessage(this.createSyncForWorkerAction({ prevState, nextState, action }))
     }
   }
-  createClientDispatch = ({ worker, reducer, sideEffects = [], ...rest }) => {
-    const createdDispatch = slexStore.createDispatch({
-      reducer,
-      sideEffects: [this.createForwardActionToWorkerStoreSideEffect({ worker }), ...sideEffects],
-      ...rest
-    })
-    const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
-      const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
-      // receive forwarded action from worker
-      worker.onmessage = event => {
-        if (event.data.type === 'SYNC_FOR_CLIENT_STORE') {
-          const action = event.data
-          dispatch(action, { skipHooks: action.isInitAction })
-          if (action.isInitAction) {
-            this._initialSyncDeferred.resolve()
-          }
-        }
+  createClientApplyDispatch = ({ worker, applyDispatch }) => ({ dispatch, getState, setState, notifyListeners }) => {
+    // receive forwarded action from worker
+    worker.onmessage = event => {
+      if (event.data.type === 'SYNC_FOR_CLIENT_STORE') {
+        const action = event.data
+        dispatch(action, { skipHooks: action.isInitAction })
       }
-      return appliedDispatch
     }
+    return applyDispatch({ dispatch, getState, setState, notifyListeners })
+  }
+
+  createClientDispatch = ({ worker, applyDispatch, ...rest }) => {
     return {
-      applyDispatch: wrappedApplyDispatch,
-      reducer: createdDispatch.reducer,
+      applyDispatch: this.createClientApplyDispatch({ worker, applyDispatch }),
       ...rest
     }
   }
@@ -85,54 +68,38 @@ class SlexStoreWorker {
       workerGlobalContext.postMessage(this.createSyncForClientAction({ differences }))
     }
   }
-  createWorkerDispatch = ({ workerGlobalContext, reducer, sideEffects = [] }) => {
-    const createdDispatch = slexStore.createDispatch({
-      reducer,
-      sideEffects
-    })
+  createWorkerApplyDispatch = ({ applyDispatch, workerGlobalContext }) => ({ dispatch, getState, setState, notifyListeners }) => {
     const bufferedPostMessage = this.createBufferedPostMessage({ workerGlobalContext })
-    const wrappedApplyDispatch = ({ dispatch, getState, setState, notifyListeners }) => {
-      const appliedDispatch = createdDispatch.applyDispatch({ dispatch, getState, setState, notifyListeners })
-      const wrappedAppliedDispatch = (action, options) => {
+    // dispatch action forwarded by client
+    workerGlobalContext.addEventListener('message', event => {
+      const action = event.data
+      if (action && action.type && action.type === 'SYNC_FOR_WORKER_STORE') {
+        const { nextState, action: forwardedAction } = action
         const prevState = getState()
-        const appliedResult = appliedDispatch(action, options)
-        const isInitAction = action.type === slexStore.initialAction.type
-        if (!isInitAction && appliedResult.stateChanged) {
-          // notify client of new state
-          const differences = this.calculateDifferences({ prevState, nextState: appliedResult.nextState })
-          bufferedPostMessage(differences)
-        }
-        return appliedResult
+        const differences = deepDiff.diff(prevState, nextState)
+        const appliedNextState = applyDiff.applyDifferences(differences, prevState)
+        const isInitAction = forwardedAction.type === 'INITIALISE'
+        return wrappedAppliedDispatch(forwardedAction, { skipHooks: isInitAction, appliedPrevState: appliedNextState })
       }
-      // dispatch action forwarded by client
-      workerGlobalContext.addEventListener('message', event => {
-        const action = event.data
-        if (action && action.type && action.type === 'SYNC_FOR_WORKER_STORE') {
-          const { nextState, action: forwardedAction } = action
-          const prevState = getState()
-          const differences = deepDiff.diff(prevState, nextState)
-          const appliedNextState = applyDiff.applyDifferences(differences, prevState)
-          if (_.isArray(forwardedAction)) {
-            const appliedDispatch = _.chain(forwardedAction)
-              .flatten()
-              .reduce((appliedDispatch, action) => {
-                const { nextState } = appliedDispatch
-                const isInitAction = action.type === slexStore.initialAction.type
-                return wrappedAppliedDispatch(action, { skipHooks: isInitAction, appliedPrevState: nextState })
-              }, { nextState: appliedNextState })
-              .value()
-            return appliedDispatch
-          } else {
-            const isInitAction = forwardedAction.type === slexStore.initialAction.type
-            return wrappedAppliedDispatch(forwardedAction, { skipHooks: isInitAction, appliedPrevState: appliedNextState })
-          }
-        }
-      })
-      return wrappedAppliedDispatch
+    }) 
+    const appliedDispatch = applyDispatch({ dispatch, getState, setState, notifyListeners })
+    const wrappedAppliedDispatch = (action, options) => {
+      const prevState = getState()
+      const appliedResult = appliedDispatch(action, options)
+      const isInitAction = action.type === 'INITIALISE'
+      if (!isInitAction && appliedResult.stateChanged) {
+        const differences = this.calculateDifferences({ prevState, nextState: appliedResult.nextState })
+        bufferedPostMessage(differences)
+      }
+      return appliedResult
     }
+    return wrappedAppliedDispatch
+  }
+  createWorkerDispatch = ({ workerGlobalContext, applyDispatch, ...rest }) => {
     return {
-      applyDispatch: wrappedApplyDispatch,
-      reducer: createdDispatch.reducer
+      workerGlobalContext,
+      applyDispatch: this.createWorkerApplyDispatch({ applyDispatch, workerGlobalContext }),
+      ...rest
     }
   }
 }

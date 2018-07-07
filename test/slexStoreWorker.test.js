@@ -408,7 +408,6 @@ describe('slexStoreWorker', function () {
       const createSyncForWorkerActionStubResult = {}
       const createSyncForWorkerActionStub = sandbox.stub(slexStoreWorker, 'createSyncForWorkerAction').returns(createSyncForWorkerActionStubResult)
       const sideEffect = slexStoreWorker.createForwardActionToWorkerStoreSideEffect({ worker })
-      debugger
       sideEffect({ dispatch: dispatchStub, getState: getStateStub, action })
       expect(worker.postMessage.calledOnce).to.be.true
       expect(worker.postMessage.firstCall.args[0]).to.equal(createSyncForWorkerActionStubResult)

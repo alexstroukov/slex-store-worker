@@ -16,18 +16,25 @@ Client
 ```javascript
 import slexStoreWorker from 'slex-store-worker'
 import slexStore from 'slex-store'
-const store =
-  slexStore.createStore(
-    slexStoreWorker.createClientDispatch({
-      worker: new Worker('./server/worker.js'),
-      reducer: slexStoreWorker.createClientReducer()
-    })
-  )
+
+const createDispatch = slexStore.compose(
+  slexStore.createDispatch,
+  slexStoreWorker.createClientDispatch
+)
+const createStore = () => slexStore.createStore(
+  createDispatch({
+    worker: new Worker('./server/worker.js'),
+    reducer: slexStore.createReducer({
+      store: reducer
+    }),
+    sideEffects: [...]
+  })
+)
+const store = createStore()
 
 store.subscribe((state) => {
   // rerender your app e.g. ReactDOM.render()
 })
-
 ```
 
 Worker
@@ -36,17 +43,23 @@ Worker
 import slexStoreWorker from 'slex-store-worker'
 import slexStore from 'slex-store'
 
-const store =
-  slexStore.createStore(
-      slexStoreWorker.createWorkerDispatch({
-        workerGlobalContext: self,
-        reducer: slexStore.createReducer({
-          ...
-        }),
-        middleware: [...],
-        sideEffects: [...]
-      })
-    )
-  )
+const createDispatch = slexStore.compose(
+  slexStore.createDispatch,
+  slexStoreWorker.createWorkerDispatch
+)
+const createStore = () => slexStore.createStore(
+  createDispatch({
+    workerGlobalContext: self,
+    reducer: slexStore.createReducer({
+      store: reducer
+    }),
+    sideEffects: [...]
+  })
+)
+const store = createStore()
+
+store.subscribe((state) => {
+  // rerender your app e.g. ReactDOM.render()
+})
 
 ```
